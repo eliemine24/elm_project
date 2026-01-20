@@ -3,15 +3,24 @@ module Main exposing (main)
 import Browser
 import Html exposing (Html, div, text)
 import Http
+import Random
+
 
 type alias Model =
     { words : List String
-    , message : String
+    , targetWord : Maybe String
     }
 
 
 type Msg
     = GotWords (Result Http.Error String)
+    | PickRandomWord
+    | WordPicked Int
+
+-- fonction pour sélectionner un mot au hasard dans words.txt
+pickWordCmd : List String -> Cmd Msg
+pickWordCmd words =
+    Random.generate WordPicked (Random.int 0 (List.length words - 1))
 
 
 init _ =
@@ -30,14 +39,20 @@ update msg model =
                 wordList =
                     String.lines content
             in
-            ( { model | words = wordList, message = "Mots chargés" }
-            , Cmd.none
+            ( { model | words = wordList }
+            , pickWordCmd wordList
             )
 
-        GotWords (Err _) ->
-            ( { model | message = "Erreur de chargement" }
-            , Cmd.none
-            )
+        WordPicked index ->
+            case List.drop index model.words |> List.head of
+                Just w ->
+                    ( { model | targetWord = Just w }, Cmd.none )
+
+                Nothing ->
+                    ( model, Cmd.none )
+
+        _ ->
+            ( model, Cmd.none )
 
 
 view : Model -> Html Msg
