@@ -1,7 +1,4 @@
-Très bien, on va le faire **pas à pas**, exactement comme le suggère l’énoncé 👍
-Je vais t’aider **méthodologiquement** (quoi faire dans quel ordre) **et techniquement** (types Elm, fonctions clés, bouts de code), sans tout “donner clé en main” d’un coup.
-
----
+# Intructions
 
 ## Vue d’ensemble du mini-projet
 
