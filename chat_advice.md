@@ -354,17 +354,3 @@ else
 * `Words.elm`
 * `Dictionary.elm`
 * `Main.elm`
-
----
-
-## Prochaine étape ?
-
-Si tu veux, je peux :
-
-* t’aider à **factoriser en modules**
-* t’aider à **déboguer une erreur Elm**
-* te fournir une **structure complète prête à compiler**
-* ou vérifier ton code une fois que tu as commencé
-
-👉 Dis-moi où tu en es maintenant (zéro, milieu, ou code déjà écrit).
-
