@@ -104,7 +104,7 @@ update msg model =
         GotWords (Ok content) ->
             let
                 wordList =
-                    String.lines content
+                    String.split " " content
                         |> List.map String.trim
                         |> List.filter (not << String.isEmpty)
             in

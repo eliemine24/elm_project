@@ -6316,7 +6316,6 @@ var $elm$core$List$isEmpty = function (xs) {
 		return false;
 	}
 };
-var $elm$core$String$lines = _String_lines;
 var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $elm$core$Basics$not = _Basics_not;
@@ -6541,7 +6540,7 @@ var $author$project$Main$update = F2(
 						A2(
 							$elm$core$List$map,
 							$elm$core$String$trim,
-							$elm$core$String$lines(content)));
+							A2($elm$core$String$split, ' ', content)));
 					return _Utils_Tuple2(
 						_Utils_update(
 							model,
