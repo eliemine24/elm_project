@@ -2,23 +2,42 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (Html, div, text)
+import Http
 
 type alias Model =
-    { message : String }
+    { words : List String
+    , message : String
+    }
 
 
 type Msg
-    = NoOp
+    = GotWords (Result Http.Error String)
 
 
-init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { message = "GuessIt démarre !" }, Cmd.none )
+    ( { words = [], message = "Chargement..." }
+    , Http.get
+        { url = "/words.txt"
+        , expect = Http.expectString GotWords
+        }
+    )
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
-    ( model, Cmd.none )
+    case msg of
+        GotWords (Ok content) ->
+            let
+                wordList =
+                    String.lines content
+            in
+            ( { model | words = wordList, message = "Mots chargés" }
+            , Cmd.none
+            )
+
+        GotWords (Err _) ->
+            ( { model | message = "Erreur de chargement" }
+            , Cmd.none
+            )
 
 
 view : Model -> Html Msg
