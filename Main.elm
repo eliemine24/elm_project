@@ -28,17 +28,22 @@ type alias Model =
 -- Messages for the Elm update loop.
 type Msg
     = GotWords (Result Http.Error String)      -- result of loading /words.txt
-    | WordPicked Int                            -- index produced by Random.generate
+    | WordPicked String                         -- directly pass the selected word
     | GotDefinitions (Result Http.Error (List String)) -- result of dictionary API call
     | UpdateGuess String                        -- user typed into the input
     | CheckGuess                                -- user clicked the "Check" button
-    | ToggleReveal Bool                          -- user toggled reveal checkbox
+    | ToggleReveal Bool                         -- user toggled reveal checkbox
 
 
--- Generate a random index to pick a word from the loaded list.
+-- Generate a random word directly from the list.
 pickWordCmd : List String -> Cmd Msg
 pickWordCmd words =
-    Random.generate WordPicked (Random.int 0 (List.length words - 1))
+    if List.isEmpty words then
+        Cmd.none
+    else
+        Random.generate 
+            (\index -> WordPicked (Maybe.withDefault "" (List.drop index words |> List.head)))
+            (Random.int 0 (List.length words - 1))
 
 
 -- Decoder for a single definition string from the dictionary API JSON.
@@ -48,14 +53,15 @@ definitionDecoder =
 
 
 -- Decoder that navigates into the API response structure to collect all definitions.
+-- API structure: Array -> [0] -> meanings -> Array -> definitions -> Array -> {definition: "..."}
 definitionsDecoder : Decode.Decoder (List String)
 definitionsDecoder =
-    Decode.at
-        [ "meanings" ]
-        (Decode.list
-            (Decode.at
-                [ "definitions" ]
-                (Decode.list definitionDecoder)
+    Decode.index 0
+        (Decode.field "meanings"
+            (Decode.list
+                (Decode.field "definitions"
+                    (Decode.list definitionDecoder)
+                )
             )
         )
         |> Decode.map List.concat  -- flatten nested lists of definitions into one list
@@ -102,37 +108,39 @@ update msg model =
                         |> List.map String.trim
                         |> List.filter (not << String.isEmpty)
             in
-            ( { model | words = wordList }
+            ( { model | words = wordList, message = "Mot sélectionné, chargement des définitions..." }
             , pickWordCmd wordList
             )
 
         -- Failed to load words.txt: record an error message.
-        GotWords (Err _) ->
-            ( { model | errorMessage = Just "Erreur: impossible de charger les mots" }, Cmd.none )
+        GotWords (Err err) ->
+            ( { model | errorMessage = Just ("Erreur: impossible de charger les mots. " ++ httpErrorToString err) }, Cmd.none )
 
-        -- Random index was generated: pick the word at that index if present.
-        WordPicked index ->
-            case List.drop index model.words |> List.head of
-                Just w ->
-                    ( { model
-                        | targetWord = Just w
-                        , message = "Devine le mot"
-                        , guess = ""
-                        , feedback = Nothing
-                      }
-                    , fetchDefinitions w    -- fetch definitions for the chosen word
-                    )
-
-                Nothing ->
-                    ( model, Cmd.none )
-
+        -- Random word was selected: use it directly.
+        WordPicked w ->
+            if String.isEmpty w then
+                ( { model | errorMessage = Just "Erreur: impossible de sélectionner un mot" }, Cmd.none )
+            else
+                ( { model
+                    | targetWord = Just w
+                    , message = "Devine le mot"
+                    , guess = ""
+                    , feedback = Nothing
+                    , definitions = []
+                  }
+                , fetchDefinitions w
+                )
+                
         -- Definitions loaded successfully: store them.
         GotDefinitions (Ok defs) ->
-            ( { model | definitions = defs }, Cmd.none )
+            if List.isEmpty defs then
+                ( { model | errorMessage = Just "Aucune définition trouvée pour ce mot" }, Cmd.none )
+            else
+                ( { model | definitions = defs, errorMessage = Nothing }, Cmd.none )
 
         -- Definitions load failed: set an error message.
-        GotDefinitions (Err _) ->
-            ( { model | errorMessage = Just "Erreur: impossible de charger les définitions" }, Cmd.none )
+        GotDefinitions (Err err) ->
+            ( { model | errorMessage = Just ("Erreur lors du chargement des définitions: " ++ httpErrorToString err) }, Cmd.none )
 
         -- User typed: update the guess field.
         UpdateGuess str ->
@@ -158,6 +166,22 @@ update msg model =
             ( { model | reveal = b }, Cmd.none )
 
 
+-- Helper function to convert HTTP errors to readable strings.
+httpErrorToString : Http.Error -> String
+httpErrorToString error =
+    case error of
+        Http.BadUrl url ->
+            "URL invalide: " ++ url
+        Http.Timeout ->
+            "Délai d'attente dépassé"
+        Http.NetworkError ->
+            "Erreur réseau"
+        Http.BadStatus status ->
+            "Erreur HTTP " ++ String.fromInt status
+        Http.BadBody body ->
+            "Erreur de décodage: " ++ body
+
+
 -- View renders the current model to HTML.
 view : Model -> Html Msg
 view model =
@@ -171,7 +195,7 @@ view model =
             Nothing ->
                 text ""
 
-        , h2 [] [ text "meanings" ]
+        , h2 [] [ text "Définitions" ]
 
         -- Show loading hint or the list of definitions.
         , if List.isEmpty model.definitions then
@@ -185,13 +209,13 @@ view model =
 
         -- Input area: text field + Check button.
         , div []
-            [ label [] [ text "Type in to guess: " ]
+            [ label [] [ text "Votre réponse: " ]
             , input
                 [ value model.guess
                 , onInput UpdateGuess
                 ]
                 []
-            , button [ onClick CheckGuess ] [ text "Check" ]
+            , button [ onClick CheckGuess ] [ text "Vérifier" ]
             ]
 
         -- Show brief feedback (correct / incorrect).
@@ -210,7 +234,7 @@ view model =
                     , onClick (ToggleReveal (not model.reveal))
                     ]
                     []
-                , text " Show answer"
+                , text " Afficher la réponse"
                 ]
             ]
 
