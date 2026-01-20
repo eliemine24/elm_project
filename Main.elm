@@ -5,7 +5,8 @@ import Html exposing (Html, div, text)
 import Http
 import Html exposing (input, button)
 import Html.Events exposing (onInput, onClick)
-import Html.Attributes exposing (value)
+import Html exposing (h1, h2, ul, li, label)
+import Html.Attributes exposing (type_, checked, value)
 import Random
 import Json.Decode as Decode
 
@@ -17,6 +18,9 @@ type alias Model =
     , definitions : List String
     , guess : String
     , success : Bool
+    , reveal : Bool
+    , errorMessage : Maybe String
+    , feedback : Maybe String
     }
 
 
@@ -26,18 +30,19 @@ type Msg
     | GotDefinitions (Result Http.Error (List String))
     | UpdateGuess String
     | CheckGuess
+    | ToggleReveal Bool
 
--- fonction pour sélectionner un mot au hasard dans words.txt
+
 pickWordCmd : List String -> Cmd Msg
 pickWordCmd words =
     Random.generate WordPicked (Random.int 0 (List.length words - 1))
 
--- décodeur json pour les définitions
+
 definitionDecoder : Decode.Decoder String
 definitionDecoder =
     Decode.field "definition" Decode.string
 
--- décodeur des définitions 
+
 definitionsDecoder : Decode.Decoder (List String)
 definitionsDecoder =
     Decode.at
@@ -50,13 +55,14 @@ definitionsDecoder =
         )
         |> Decode.map List.concat
 
--- récup les définitions 
+
 fetchDefinitions : String -> Cmd Msg
 fetchDefinitions word =
     Http.get
         { url = "https://api.dictionaryapi.dev/api/v2/entries/en/" ++ word
         , expect = Http.expectJson GotDefinitions definitionsDecoder
         }
+
 
 init : () -> ( Model, Cmd Msg )
 init _ =
@@ -66,12 +72,16 @@ init _ =
       , definitions = []
       , guess = ""
       , success = False
+      , reveal = False
+      , errorMessage = Nothing
+      , feedback = Nothing
       }
     , Http.get
         { url = "/words.txt"
         , expect = Http.expectString GotWords
         }
     )
+
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
@@ -80,10 +90,15 @@ update msg model =
             let
                 wordList =
                     String.lines content
+                        |> List.map String.trim
+                        |> List.filter (not << String.isEmpty)
             in
             ( { model | words = wordList }
             , pickWordCmd wordList
             )
+
+        GotWords (Err _) ->
+            ( { model | errorMessage = Just "Erreur: impossible de charger les mots" }, Cmd.none )
 
         WordPicked index ->
             case List.drop index model.words |> List.head of
@@ -91,6 +106,8 @@ update msg model =
                     ( { model
                         | targetWord = Just w
                         , message = "Devine le mot"
+                        , guess = ""
+                        , feedback = Nothing
                       }
                     , fetchDefinitions w
                     )
@@ -101,38 +118,93 @@ update msg model =
         GotDefinitions (Ok defs) ->
             ( { model | definitions = defs }, Cmd.none )
 
+        GotDefinitions (Err _) ->
+            ( { model | errorMessage = Just "Erreur: impossible de charger les définitions" }, Cmd.none )
+
         UpdateGuess str ->
             ( { model | guess = str }, Cmd.none )
 
         CheckGuess ->
             case model.targetWord of
                 Just w ->
-                    ( { model | success = model.guess == w }, Cmd.none )
+                    if String.toLower (String.trim model.guess) == String.toLower w then
+                        ( { model | success = True, feedback = Just "✅ Correct!" }, Cmd.none )
+                    else
+                        ( { model | feedback = Just "❌ Incorrect, réessayez!" }, Cmd.none )
 
                 Nothing ->
                     ( model, Cmd.none )
-
-        _ ->
-            ( model, Cmd.none )
+        
+        ToggleReveal b ->
+            ( { model | reveal = b }, Cmd.none )
 
 
 view : Model -> Html Msg
 view model =
     div []
-        ([ div [] (List.map text model.definitions)
-         , input
-            [ value model.guess
-            , onInput UpdateGuess
+        [ h1 [] [ text "Guess it!" ]
+
+        , case model.errorMessage of
+            Just err ->
+                div [ Html.Attributes.style "color" "red" ] [ text err ]
+            Nothing ->
+                text ""
+
+        , h2 [] [ text "meanings" ]
+
+        , if List.isEmpty model.definitions then
+            text "Chargement des définitions..."
+          else
+            ul []
+                (List.map
+                    (\def -> li [] [ text def ])
+                    model.definitions
+                )
+
+        , div []
+            [ label [] [ text "Type in to guess: " ]
+            , input
+                [ value model.guess
+                , onInput UpdateGuess
+                ]
+                []
+            , button [ onClick CheckGuess ] [ text "Check" ]
             ]
-            []
-         , button [ onClick CheckGuess ] [ text "Valider" ]
-         ]
-            ++ (if model.success then
-                    [ div [] [ text "Bravo 🎉" ] ]
-                else
+
+        , case model.feedback of
+            Just fb ->
+                div [] [ text fb ]
+            Nothing ->
+                text ""
+
+        , div []
+            [ label []
+                [ input
+                    [ type_ "checkbox"
+                    , checked model.reveal
+                    , onClick (ToggleReveal (not model.reveal))
+                    ]
                     []
-               )
-        )
+                , text " Show answer"
+                ]
+            ]
+
+        , if model.reveal then
+            case model.targetWord of
+                Just w ->
+                    div [] [ text ("👉 " ++ w) ]
+
+                Nothing ->
+                    text ""
+          else
+            text ""
+
+        , if model.success then
+            div [] [ text "Bravo 🎉" ]
+          else
+            text ""
+        ]
+
 
 main : Program () Model Msg
 main =
@@ -140,5 +212,5 @@ main =
         { init = init
         , update = update
         , view = view
-        , subscriptions = \_ -> Sub.none
+        , subscriptions = always Sub.none
         }
