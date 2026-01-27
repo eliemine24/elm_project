@@ -11,7 +11,7 @@ Réaliser le mini-jeu web GuessIt en Elm dont le but est de deviner un mot à pa
 - le joueur peut afficher la bonne réponse grâce à une checkbox
 
 ## Technologies utilisées
-- Elm : langage fonctionnel compilé en Javascript utilisé pour les applications web
+- Elm : langage fonctionnel compilé en Javascript utilisé pour coder notre mini-jeu web
 - [Free Dictionary API](https://dictionaryapi.dev/) : API regroupant des définitions, appelée via une requête HTTP
 
 ## Structure
