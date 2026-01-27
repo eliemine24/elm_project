@@ -26,12 +26,16 @@ Le projet est composé du fichier `Main.elm` dans lequel est implémenté le min
 - gestion des erreurs (réseau, chargement des données)
 
 ## Utilisation
-Récupérer le dépôt du projet:   
-```
-git clone https://github.com/eliemine24/elm_project.git
+Dans un terminal, récupérer le dossier contenant le projet.
+```bash
+~$ git clone https://github.com/eliemine24/elm_project.git
 ```   
-Dans un terminal, lancer le serveur ELM :   
+Depuis le projet, initialiser le répertoire elm et installer les bibliothèques nécessaires en exécutant le script d'installation (répondre `Y` pour chaque demande du terminal).
+```bash
+~/elm_project$ ./install.sh
 ```
-elm reactor
+Lancer le programme principal.
+```bash
+~/elm_project$ elm reactor
 ```    
 Copier l'adresse locale proposée (`http://localhost:8000`) dans un navigateur et ouvrir le fichier `Main.elm`
